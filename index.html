@@ -159,9 +159,15 @@
     MODEL_FILES[filename] = URL.createObjectURL(blob);
   }
 
-  // face-api.js captures its own reference to fetch at init time (via its
-  // internal env), so overriding window.fetch alone does not affect it.
-  // It exposes env.monkeyPatch() specifically to swap that reference out.
+  // Two separate fetch paths inside face-api.js need patching:
+  // 1. face-api.js's own env module (used to fetch the JSON manifest) —
+  //    it captures its own private fetch reference, so window.fetch alone
+  //    won't reach it. Fixed via faceapi.env.monkeyPatch().
+  // 2. The actual binary weight shards are loaded via TensorFlow.js's own
+  //    internal loader (tf.io.loadWeights), a completely separate code
+  //    path that reads the global `fetch` identifier directly — so it
+  //    needs window.fetch itself reassigned.
+  // Both are patched with the same function to guarantee full coverage.
   const originalFetch = window.fetch.bind(window);
   function modelFetch(input, init){
     const url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -171,6 +177,7 @@
     }
     return originalFetch(input, init);
   }
+  window.fetch = modelFetch;
   faceapi.env.monkeyPatch({ fetch: modelFetch });
 
   const video = document.getElementById('video');
