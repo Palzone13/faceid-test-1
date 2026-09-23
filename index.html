@@ -178,7 +178,16 @@
     return originalFetch(input, init);
   }
   window.fetch = modelFetch;
-  faceapi.env.monkeyPatch({ fetch: modelFetch });
+  // monkeyPatch() resets face-api's whole environment object, not just
+  // fetch — passing only `fetch` silently replaces its correct
+  // createCanvasElement/createImageElement (document.createElement based)
+  // with a broken `new HTMLCanvasElement()` call, which browsers forbid.
+  // Pass explicit correct values for all of them to avoid that.
+  faceapi.env.monkeyPatch({
+    fetch: modelFetch,
+    createCanvasElement: () => document.createElement('canvas'),
+    createImageElement: () => document.createElement('img')
+  });
 
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
